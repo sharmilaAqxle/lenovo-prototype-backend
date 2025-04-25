@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lenovo Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .insights {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .error {
+            color: red;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid red;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Lenovo Marketing Dashboard</h1>
+    
+    <div id="error-message" class="error" style="display: none;"></div>
+
+    <div id="keyword-gaps" class="chart-container">
+        <h2>Keyword Performance Gaps</h2>
+        <div class="insights"></div>
+        <canvas id="keywordGapsChart"></canvas>
+    </div>
+
+    <div id="ad-spend" class="chart-container">
+        <h2>Ad Spend Efficiency</h2>
+        <div class="insights"></div>
+        <canvas id="adSpendChart"></canvas>
+    </div>
+
+    <div id="youtube-trends" class="chart-container">
+        <h2>YouTube Content Gaps</h2>
+        <div class="insights"></div>
+        <canvas id="youtubeTrendsChart"></canvas>
+    </div>
+
+    <div id="competitor-impact" class="chart-container">
+        <h2>Competitor Impact Analysis</h2>
+        <div class="insights"></div>
+        <canvas id="competitorImpactChart"></canvas>
+    </div>
+
+    <div id="opportunity-keywords" class="chart-container">
+        <h2>Keyword Opportunities</h2>
+        <div class="insights"></div>
+        <canvas id="opportunityKeywordsChart"></canvas>
+    </div>
+
+    <script>
+        // Get the current hostname and port
+        const currentHost = window.location.hostname;
+        const currentPort = window.location.port;
+        
+        // Use the current URL for API calls
+        const API_BASE_URL = `${window.location.protocol}//${currentHost}${currentPort ? ':' + currentPort : ''}/api`;
+
+        console.log('API Base URL:', API_BASE_URL);
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        async function fetchData(endpoint) {
+            try {
+                console.log(`Fetching data from ${API_BASE_URL}/${endpoint}`);
+                const response = await fetch(`${API_BASE_URL}/${endpoint}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                console.log(`Data received for ${endpoint}:`, data);
+                return data;
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}:`, error);
+                showError(`Error loading ${endpoint}: ${error.message}`);
+                return null;
+            }
+        }
+
+        function updateInsights(container, data) {
+            try {
+                const insightsDiv = container.querySelector('.insights');
+                insightsDiv.innerHTML = `
+                    <h3>${data.title}</h3>
+                    <p>${data.subtitle}</p>
+                    <ul>
+                        ${data.insights.map(insight => `<li>${insight}</li>`).join('')}
+                    </ul>
+                `;
+            } catch (error) {
+                console.error('Error updating insights:', error);
+            }
+        }
+
+        // Keyword Gaps Chart
+        async function loadKeywordGaps() {
+            try {
+                console.log('Loading keyword gaps chart...');
+                const response = await fetchData('keyword-gaps');
+                if (!response) {
+                    console.error('No data received for keyword gaps');
+                    return;
+                }
+
+                console.log('Response data:', response);
+                
+                const container = document.getElementById('keyword-gaps');
+                updateInsights(container, response.answer);
+
+                const ctx = document.getElementById('keywordGapsChart');
+                if (!ctx) {
+                    console.error('Canvas element not found');
+                    return;
+                }
+
+                console.log('Creating keyword gaps chart...');
+                new Chart(ctx, {
+                    type: response.chart_name === 'grouped_bar_chart' ? 'bar' : 'line',
+                    data: {
+                        labels: response["x-axis"].values,
+                        datasets: [
+                            {
+                                label: 'Lenovo Performance',
+                                data: response["y-axis"].values.lenovo_performance,
+                                backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                            },
+                            {
+                                label: 'Competitor Average',
+                                data: response["y-axis"].values.competitor_avg,
+                                backgroundColor: 'rgba(255, 99, 132, 0.6)'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: response["y-axis"].name
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: response["x-axis"].name
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading keyword gaps chart:', error);
+            }
+        }
+
+        // Ad Spend Efficiency Chart
+        async function loadAdSpendEfficiency() {
+            try {
+                const response = await fetchData('ad-spend-efficiency');
+                if (!response) return;
+
+                const container = document.getElementById('ad-spend');
+                updateInsights(container, response.answer);
+                
+                new Chart(document.getElementById('adSpendChart'), {
+                    type: response.chart_name === 'grouped_bar_chart' ? 'bar' : 'line',
+                    data: {
+                        labels: response["x-axis"].values,
+                        datasets: [
+                            {
+                                label: 'Lenovo Spend',
+                                data: response["y-axis"].values.lenovo_spend,
+                                backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                            },
+                            {
+                                label: 'Competitor Average',
+                                data: response["y-axis"].values.competitor_avg,
+                                backgroundColor: 'rgba(255, 99, 132, 0.6)'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: response["y-axis"].name
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: response["x-axis"].name
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.dataset.label}: $${context.raw.toLocaleString()}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading ad spend chart:', error);
+            }
+        }
+
+        // YouTube Trends Chart
+        async function loadYouTubeTrends() {
+            try {
+                const response = await fetchData('youtube-trends');
+                if (!response) return;
+
+                const container = document.getElementById('youtube-trends');
+                updateInsights(container, response.answer);
+                
+                new Chart(document.getElementById('youtubeTrendsChart'), {
+                    type: response.chart_name === 'grouped_bar_chart' ? 'bar' : 'line',
+                    data: {
+                        labels: response["x-axis"].values,
+                        datasets: [
+                            {
+                                label: 'Lenovo Content',
+                                data: response["y-axis"].values.lenovo_content,
+                                backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                            },
+                            {
+                                label: 'Competitor Average',
+                                data: response["y-axis"].values.competitor_avg,
+                                backgroundColor: 'rgba(255, 99, 132, 0.6)'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: response["y-axis"].name
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: response["x-axis"].name
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading YouTube trends chart:', error);
+            }
+        }
+
+        // Competitor Impact Chart
+        async function loadCompetitorImpact() {
+            try {
+                const response = await fetchData('competitor-impact');
+                if (!response) return;
+
+                const container = document.getElementById('competitor-impact');
+                updateInsights(container, response.answer);
+                
+                new Chart(document.getElementById('competitorImpactChart'), {
+                    type: response.chart_name === 'line_chart' ? 'line' : 'bar',
+                    data: {
+                        labels: response["x-axis"].values,
+                        datasets: [
+                            {
+                                label: 'Social Impact',
+                                data: response["y-axis"].values.social_impact,
+                                borderColor: 'rgba(54, 162, 235, 0.8)',
+                                fill: false
+                            },
+                            {
+                                label: 'Video Impact',
+                                data: response["y-axis"].values.video_impact,
+                                borderColor: 'rgba(255, 99, 132, 0.8)',
+                                fill: false
+                            },
+                            {
+                                label: 'Display Impact',
+                                data: response["y-axis"].values.display_impact,
+                                borderColor: 'rgba(75, 192, 192, 0.8)',
+                                fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: response["y-axis"].name
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: response["x-axis"].name
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading competitor impact chart:', error);
+            }
+        }
+
+        // Opportunity Keywords Chart
+        async function loadOpportunityKeywords() {
+            try {
+                const response = await fetchData('opportunity-keywords');
+                if (!response) return;
+
+                const container = document.getElementById('opportunity-keywords');
+                updateInsights(container, response.answer);
+                
+                const keywords = response["y-axis"].values.keywords;
+                const scores = response["y-axis"].values.scores;
+                const volumes = response["x-axis"].values;
+
+                new Chart(document.getElementById('opportunityKeywordsChart'), {
+                    type: response.chart_name === 'scatter_chart' ? 'scatter' : 'bar',
+                    data: {
+                        datasets: [{
+                            label: 'Keyword Opportunities',
+                            data: keywords.map((keyword, i) => ({
+                                x: volumes[i],
+                                y: scores[i],
+                                label: keyword
+                            })),
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            pointRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: response["y-axis"].name
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: response["x-axis"].name
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const point = context.raw;
+                                        return [
+                                            `Keyword: ${point.label}`,
+                                            `Search Volume: ${point.x}`,
+                                            `Opportunity Score: ${point.y}`
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading opportunity keywords chart:', error);
+            }
+        }
+
+        // Load all charts
+        document.addEventListener('DOMContentLoaded', () => {
+            loadKeywordGaps();
+            loadAdSpendEfficiency();
+            loadYouTubeTrends();
+            loadCompetitorImpact();
+            loadOpportunityKeywords();
+        });
+    </script>
+</body>
+</html>
